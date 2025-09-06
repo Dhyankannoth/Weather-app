@@ -1,5 +1,14 @@
 import { useState } from "react";
 import "leaflet/dist/leaflet.css";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
 
 const getWeatherIcon = (description = "", isLarge = false) => {
   const size = isLarge ? "text-8xl" : "text-4xl";
@@ -72,6 +81,44 @@ const LightSkyBackground = () => (
   <div className="absolute inset-0 bg-gradient-to-b from-sky-200 via-sky-100 to-amber-100" />
 );
 
+// Map component for current city and forecast markers
+function WeatherMap({ weather, forecast }) {
+  if (!weather) return null;
+
+  const center = [weather.coord.lat, weather.coord.lon];
+
+  return (
+    <MapContainer
+      center={center}
+      zoom={5}
+      style={{ height: "400px", width: "100%", borderRadius: "1rem" }}
+    >
+      <TileLayer
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      />
+
+      <Marker position={center}>
+        <Popup>
+          <strong>{weather.name}</strong> <br />
+          Temp: {Math.round(weather.main.temp)}°C <br />
+          {weather.weather?.[0]?.description}
+        </Popup>
+      </Marker>
+
+      {forecast.map((f, i) => (
+        <Marker key={i} position={[f.coord.lat, f.coord.lon]}>
+          <Popup>
+            {getDayName(f.dt_txt)} <br />
+            Temp: {Math.round(f.main.temp)}°C <br />
+            {f.weather?.[0]?.description}
+          </Popup>
+        </Marker>
+      ))}
+    </MapContainer>
+  );
+}
+
 export default function App() {
   const [city, setCity] = useState("");
   const [weather, setWeather] = useState(null);
@@ -96,6 +143,7 @@ export default function App() {
         return;
       }
       setWeather(data);
+
       const forecastRes = await fetch(
         `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${API_KEY}&units=metric`
       );
@@ -104,19 +152,27 @@ export default function App() {
         setLoading(false);
         return;
       }
-      const dailyForecast = forecastData.list.filter((f) =>
-        f.dt_txt.includes("12:00:00")
-      );
-      setForecast(dailyForecast.slice(0, 5));
+
+      const dailyForecast = forecastData.list
+        .filter((f) => f.dt_txt.includes("12:00:00"))
+        .slice(0, 5)
+        .map((f) => ({
+          ...f,
+          coord: { lat: data.coord.lat, lon: data.coord.lon }, // reuse city coords
+        }));
+
+      setForecast(dailyForecast);
+
       let newAlerts = [];
       if (forecastData.list.some((d) => d.weather?.[0]?.description?.includes("rain")))
         newAlerts.push("Carry umbrella 🌧");
-      if (forecastData.list.some((d) => d.main?.temp > 35))
-        newAlerts.push("Stay hydrated 🥵");
+      if (forecastData.list.some((d) => d.main?.temp > 35)) newAlerts.push("Stay hydrated 🥵");
       if (data.wind?.speed > 13.8) newAlerts.push("High winds warning 🌪");
       setAlerts(newAlerts);
+
       setLoading(false);
     } catch (error) {
+      console.error(error);
       setLoading(false);
     }
   };
@@ -131,6 +187,7 @@ export default function App() {
         <div className="absolute inset-0 transition-opacity duration-700">
           {darkMode ? <DarkAuroraBackground /> : <LightSkyBackground />}
         </div>
+
         <div className="relative z-10 p-6 max-w-7xl mx-auto text-black dark:text-white transition-colors duration-700">
           <div className="mb-8 flex items-center justify-between">
             <h1 className="text-2xl font-light">Weather Dashboard</h1>
@@ -163,12 +220,7 @@ export default function App() {
                   {loading ? (
                     <div className="w-4 h-4 border border-white/30 border-t-white rounded-full animate-spin"></div>
                   ) : (
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -181,6 +233,7 @@ export default function App() {
               </div>
             </div>
           </div>
+
           {weather ? (
             <div className="grid grid-cols-12 gap-6">
               <div className="col-span-12 lg:col-span-8">
@@ -203,6 +256,7 @@ export default function App() {
                   </p>
                 </div>
               </div>
+
               <div className="col-span-12 lg:col-span-4 space-y-6">
                 {alerts.length > 0 && (
                   <div className="bg-orange-100 dark:bg-orange-900/20 rounded-2xl p-6 border border-orange-300 dark:border-orange-700/30 shadow transition-colors duration-500">
@@ -228,6 +282,8 @@ export default function App() {
                   </div>
                 )}
               </div>
+
+              {/* Forecast */}
               <div className="col-span-12">
                 <div className="bg-white/70 dark:bg-white/5 rounded-2xl p-6 border border-gray-300 dark:border-white/10 shadow transition-colors duration-500">
                   <h3 className="mb-4 text-lg">5-Day Forecast</h3>
@@ -245,6 +301,10 @@ export default function App() {
                       ))}
                   </div>
                 </div>
+              </div>
+
+              <div className="col-span-12 mt-6">
+                <WeatherMap weather={weather} forecast={forecast} />
               </div>
             </div>
           ) : (
@@ -265,4 +325,3 @@ export default function App() {
     </div>
   );
 }
-
