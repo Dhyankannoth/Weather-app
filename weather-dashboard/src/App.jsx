@@ -2,6 +2,7 @@ import { useState } from "react";
 import "leaflet/dist/leaflet.css";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
+import DarkBg from "./assets/back pic 7.jpg";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -26,7 +27,7 @@ const getDayName = (dateString) => {
   return date.toLocaleDateString("en-US", { weekday: "short" });
 };
 
-const DarkAuroraBackground = () => {
+const DarkAuroraBackground = ({ image }) => {
   const stars = Array.from({ length: 120 }).map((_, i) => ({
     left: `${Math.random() * 100}%`,
     top: `${Math.random() * 100}%`,
@@ -38,15 +39,18 @@ const DarkAuroraBackground = () => {
 
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_-10%,#0b1020_0%,#05070d_60%,#04060b_100%)]" />
+   
+      <img src={image} alt="Background" className="w-full h-full object-cover" />
+
       <div className="pointer-events-none absolute -left-1/4 -top-1/3 w-[70vw] h-[70vh] aurora-glow aurora-a" />
       <div className="pointer-events-none absolute right-[-15%] top-[-10%] w-[55vw] h-[55vh] aurora-glow aurora-b" />
       <div className="pointer-events-none absolute left-[15%] bottom-[-25%] w-[60vw] h-[60vh] aurora-glow aurora-c" />
+
       <div className="absolute inset-0">
         {stars.map((s, i) => (
           <span
             key={i}
-            className="absolute rounded-full bg-white opacity-80 will-change-transform"
+            className="absolute rounded-full bg-white opacity-80"
             style={{
               left: s.left,
               top: s.top,
@@ -57,13 +61,7 @@ const DarkAuroraBackground = () => {
           />
         ))}
       </div>
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(120% 100% at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%)",
-        }}
-      />
+
       <style>{`
         .aurora-glow { filter: blur(60px) saturate(140%); opacity: 0.28; border-radius: 9999px; }
         .aurora-a { background: radial-gradient(60% 60% at 50% 50%, rgba(56,189,248,0.9) 0%, rgba(56,189,248,0) 60%); animation: drift 26s linear infinite alternate; }
@@ -76,15 +74,8 @@ const DarkAuroraBackground = () => {
     </div>
   );
 };
-
-const LightSkyBackground = () => (
-  <div className="absolute inset-0 bg-gradient-to-b from-sky-200 via-sky-100 to-amber-100" />
-);
-
-// Map component for current city and forecast markers
 function WeatherMap({ weather, forecast }) {
   if (!weather) return null;
-
   const center = [weather.coord.lat, weather.coord.lon];
 
   return (
@@ -95,7 +86,7 @@ function WeatherMap({ weather, forecast }) {
     >
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
       />
 
       <Marker position={center}>
@@ -125,7 +116,6 @@ export default function App() {
   const [forecast, setForecast] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
 
   const API_KEY = import.meta.env.VITE_WEATHER_API_KEY;
 
@@ -158,7 +148,7 @@ export default function App() {
         .slice(0, 5)
         .map((f) => ({
           ...f,
-          coord: { lat: data.coord.lat, lon: data.coord.lon }, // reuse city coords
+          coord: { lat: data.coord.lat, lon: data.coord.lon },
         }));
 
       setForecast(dailyForecast);
@@ -182,62 +172,43 @@ export default function App() {
   };
 
   return (
-    <div className={darkMode ? "dark" : ""}>
-      <div className="min-h-screen relative transition-colors duration-700">
-        <div className="absolute inset-0 transition-opacity duration-700">
-          {darkMode ? <DarkAuroraBackground /> : <LightSkyBackground />}
-        </div>
+    <div className="dark">
+      <div className="min-h-screen relative text-white">
+        
+        <DarkAuroraBackground image={DarkBg} />
 
-        <div className="relative z-10 p-6 max-w-7xl mx-auto text-black dark:text-white transition-colors duration-700">
+        <div className="relative z-10 p-6 max-w-7xl mx-auto">
           <div className="mb-8 flex items-center justify-between">
             <h1 className="text-2xl font-light">Weather Dashboard</h1>
-            <div className="flex items-center space-x-4">
+            <div className="relative">
+              <input
+                className="bg-black/40 border border-gray-400/50 text-white placeholder-gray-400 px-4 py-2 rounded-full w-64 text-sm focus:outline-none shadow-sm"
+                placeholder="Search city..."
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                onKeyPress={handleKeyPress}
+              />
               <button
-                onClick={() => setDarkMode(!darkMode)}
-                className="w-10 h-10 flex items-center justify-center rounded-full border border-gray-400/50 bg-gray-200 dark:bg-gray-800 transition-all duration-500"
+                className="absolute right-1 top-1 bg-gray-700/30 hover:bg-gray-600/50 text-white p-1.5 rounded-full"
+                onClick={getWeather}
+                disabled={loading}
               >
-                <div
-                  className={`transform transition-transform duration-700 text-xl ${
-                    darkMode ? "rotate-0" : "rotate-180"
-                  }`}
-                >
-                  {darkMode ? "🌙" : "☀️"}
-                </div>
+                {loading ? (
+                  <div className="w-4 h-4 border border-white/30 border-t-white rounded-full animate-spin"></div>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                )}
               </button>
-              <div className="relative">
-                <input
-                  className="bg-white/70 dark:bg-black/40 border border-gray-400/50 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 px-4 py-2 rounded-full w-64 text-sm focus:outline-none shadow-sm transition-colors duration-500"
-                  placeholder="Search city..."
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                />
-                <button
-                  className="absolute right-1 top-1 bg-gray-700/30 hover:bg-gray-600/50 text-white p-1.5 rounded-full transition-all duration-300"
-                  onClick={getWeather}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <div className="w-4 h-4 border border-white/30 border-t-white rounded-full animate-spin"></div>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
-                  )}
-                </button>
-              </div>
             </div>
           </div>
 
           {weather ? (
             <div className="grid grid-cols-12 gap-6">
+              
               <div className="col-span-12 lg:col-span-8">
-                <div className="bg-white/70 dark:bg-white/5 backdrop-blur-xl rounded-3xl p-8 border border-gray-300 dark:border-white/10 shadow-lg transition-colors duration-500">
+                <div className="bg-black/40 backdrop-blur-xl rounded-3xl p-8 border border-white/10 shadow-lg">
                   {weather?.main && (
                     <div className="flex items-center space-x-6">
                       {getWeatherIcon(weather?.weather?.[0]?.description || "", true)}
@@ -245,29 +216,27 @@ export default function App() {
                         <h2 className="text-4xl font-light">
                           {Math.round(weather?.main?.temp)}°C
                         </h2>
-                        <p className="text-gray-700 dark:text-gray-300 capitalize">
+                        <p className="text-gray-300 capitalize">
                           {weather?.weather?.[0]?.description}
                         </p>
                       </div>
                     </div>
                   )}
-                  <p className="mt-4 text-gray-600 dark:text-gray-400">
-                    Location: {weather?.name}
-                  </p>
+                  <p className="mt-4 text-gray-400">Location: {weather?.name}</p>
                 </div>
               </div>
 
               <div className="col-span-12 lg:col-span-4 space-y-6">
                 {alerts.length > 0 && (
-                  <div className="bg-orange-100 dark:bg-orange-900/20 rounded-2xl p-6 border border-orange-300 dark:border-orange-700/30 shadow transition-colors duration-500">
-                    <h3 className="text-orange-800 dark:text-orange-300 text-sm font-medium mb-4 uppercase tracking-wide">
+                  <div className="bg-orange-900/20 rounded-2xl p-6 border border-orange-700/30 shadow">
+                    <h3 className="text-orange-300 text-sm font-medium mb-4 uppercase tracking-wide">
                       Weather Alerts
                     </h3>
                     <div className="space-y-3">
                       {alerts.map((alert, i) => (
                         <div
                           key={i}
-                          className="text-orange-800 dark:text-orange-100 text-sm bg-orange-200/60 dark:bg-orange-500/10 rounded-lg p-3"
+                          className="text-orange-100 text-sm bg-orange-500/10 rounded-lg p-3"
                         >
                           {alert}
                         </div>
@@ -276,23 +245,22 @@ export default function App() {
                   </div>
                 )}
                 {weather?.main && (
-                  <div className="bg-white/70 dark:bg-white/5 rounded-2xl p-6 border border-gray-300 dark:border-white/10 shadow transition-colors duration-500">
+                  <div className="bg-black/30 rounded-2xl p-6 border border-white/10 shadow">
                     <p>Humidity: {weather?.main?.humidity}%</p>
                     <p>Wind Speed: {weather?.wind?.speed} m/s</p>
                   </div>
                 )}
               </div>
 
-              {/* Forecast */}
               <div className="col-span-12">
-                <div className="bg-white/70 dark:bg-white/5 rounded-2xl p-6 border border-gray-300 dark:border-white/10 shadow transition-colors duration-500">
+                <div className="bg-black/30 rounded-2xl p-6 border border-white/10 shadow">
                   <h3 className="mb-4 text-lg">5-Day Forecast</h3>
                   <div className="grid grid-cols-5 gap-4">
                     {forecast?.length > 0 &&
                       forecast.map((d, i) => (
                         <div
                           key={i}
-                          className="bg-white/60 dark:bg-black/30 rounded-xl p-4 text-center shadow transition-colors duration-500"
+                          className="bg-black/40 rounded-xl p-4 text-center shadow"
                         >
                           {getWeatherIcon(d.weather?.[0]?.description)}
                           <p className="text-sm">{getDayName(d.dt_txt)}</p>
@@ -308,13 +276,13 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-center min-h-[60vh] transition-opacity duration-700">
+            <div className="flex items-center justify-center min-h-[60vh]">
               <div className="text-center">
                 <div className="text-8xl mb-6 opacity-70">🌤️</div>
-                <h2 className="text-2xl font-light mb-4 drop-shadow-lg">
+                <h2 className="text-2xl font-light mb-4">
                   Search for weather information
                 </h2>
-                <p className="text-black/70 dark:text-white/80 drop-shadow">
+                <p className="text-white/80">
                   Enter a city name to get current conditions and forecast
                 </p>
               </div>
